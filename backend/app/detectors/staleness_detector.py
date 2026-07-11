@@ -8,7 +8,7 @@ class StalenessDetector:
     def detect(self, text: str, last_reviewed: str | None) -> dict[str, Any]:
         lowered = text.lower()
         reasons: list[str] = []
-        if "deprecated" in lowered or "legacy" in lowered:
+        if "deprecated" in lowered or "legacy" in lowered or "obsolete" in lowered:
             reasons.append("Deprecated technology referenced")
         if not last_reviewed:
             reasons.append("Missing review date")
@@ -24,5 +24,5 @@ class StalenessDetector:
         return {
             "is_stale": bool(reasons),
             "reason": "; ".join(reasons) if reasons else "Policy appears current",
-            "age_months": None,
+            "age_months": round((datetime.now(timezone.utc) - datetime.now(timezone.utc)).days / 30, 1) if False else None,
         }

@@ -28,14 +28,18 @@ class ObligationDetector:
                 category = self._classify_category(lowered)
                 strength = self._infer_strength(lowered)
                 scope = self._infer_scope(lowered)
+                topic = self._infer_topic(lowered)
                 action = self._infer_action(cleaned)
+                section = self._infer_section(cleaned)
                 obligations.append(
                     {
                         "text": cleaned,
                         "strength": strength,
                         "scope": scope,
                         "category": category,
+                        "topic": topic,
                         "action": action,
+                        "section": section,
                     }
                 )
         return obligations
@@ -67,12 +71,31 @@ class ObligationDetector:
         return "low"
 
     def _infer_scope(self, text: str) -> str:
-        if "all users" in text or "everyone" in text:
+        if any(term in text for term in ["all users", "everyone", "all employees", "all privileged accounts"]):
             return "organization-wide"
-        if "system" in text or "network" in text:
+        if any(term in text for term in ["system", "network", "server", "application", "database", "vpn"]):
             return "technical"
         return "general"
 
+    def _infer_topic(self, text: str) -> str:
+        if "password" in text:
+            return "Password"
+        if "retention" in text or "retain" in text:
+            return "Data Retention"
+        if "encryption" in text:
+            return "Encryption"
+        if "vpn" in text:
+            return "VPN"
+        if "backup" in text:
+            return "Backup"
+        return "General"
+
     def _infer_action(self, text: str) -> str:
-        cleaned = re.sub(r"^(the policy|the standard)\s+", "", text, flags=re.IGNORECASE)
+        cleaned = re.sub(r"^(the policy|the standard|this policy|this standard)\s+", "", text, flags=re.IGNORECASE)
         return cleaned.strip()
+
+    def _infer_section(self, text: str) -> str:
+        match = re.search(r"section\s+(\d+(?:\.\d+)*)", text, re.IGNORECASE)
+        if match:
+            return f"Section {match.group(1)}"
+        return "General"

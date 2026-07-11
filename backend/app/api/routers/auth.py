@@ -13,14 +13,21 @@ security = HTTPBearer()
 
 
 class AuthService:
-    def authenticate(self, username: str, password: str) -> tuple[dict, str]:
+    def authenticate(self, identifier: str, password: str) -> tuple[dict, str]:
         session = SessionLocal()
         repository = UserRepository(session)
-        user = repository.get_by_username(username)
+        user = repository.get_by_username_or_email(identifier)
         if user and verify_password(password, user.hashed_password):
-            payload = {"id": user.id, "username": user.username, "email": user.email}
+            display_name = user.username or (user.email or "Policy User")
+            payload = {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "name": display_name,
+                "role": "admin",
+            }
             session.close()
-            return payload, create_access_token(username)
+            return payload, create_access_token(user.username)
         session.close()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
@@ -30,7 +37,8 @@ service = AuthService()
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest) -> TokenResponse:
-    user, token = service.authenticate(payload.username, payload.password)
+    identifier = payload.email or payload.username or ""
+    user, token = service.authenticate(identifier, payload.password)
     return TokenResponse(access_token=token, user=UserOut(**user))
 
 
@@ -40,4 +48,12 @@ def me(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
         payload = jwt.decode(credentials.credentials, settings.secret_key, algorithms=[settings.algorithm])
     except jwt.PyJWTError as exc:  # type: ignore[attr-defined]
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
-    return {"user": {"username": payload.get("sub")}}
+    return {
+        "user": {
+            "id": payload.get("id"),
+            "username": payload.get("sub"),
+            "email": payload.get("email"),
+            "name": payload.get("name") or payload.get("sub"),
+            "role": payload.get("role") or "admin",
+        }
+    }

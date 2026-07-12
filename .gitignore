@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.vscode/
+
+backend/logs/
+backend/app/database/policy_guardian.db

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-import jwt
+from jose import jwt
 
 from backend.app.core.config import settings
 from backend.app.core.security import create_access_token, verify_password

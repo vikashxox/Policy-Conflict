@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from typing import Any
 
-import jwt
+from jose import jwt
 
 from backend.app.core.config import settings
 

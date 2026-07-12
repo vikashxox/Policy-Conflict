@@ -19,9 +19,11 @@ import {
   GitCompareArrows,
   CalendarClock,
   CornerDownLeft,
+  LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { searchIndex, notifications as seedNotifications, type Severity } from "@/lib/data"
+import { useAuth, useLogout } from "@/lib/auth-context"
 
 const nav = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -249,6 +251,17 @@ function NotificationCenter() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { user } = useAuth()
+  const logout = useLogout()
+
+  // Build display name and initials from the authenticated user
+  const displayName = user?.name ?? user?.username ?? "User"
+  const initials = displayName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
 
   return (
     <div className="flex min-h-screen">
@@ -311,15 +324,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Sun className="size-5" />
             </button>
             <NotificationCenter />
-            <button
-              className="flex items-center gap-2 rounded-2xl border border-border bg-white/5 py-1 pl-1 pr-3 hover:bg-white/10"
-              aria-label="Profile"
-            >
-              <span className="flex size-8 items-center justify-center rounded-xl bg-primary/25 text-xs font-semibold text-primary">
-                AM
-              </span>
-              <span className="hidden text-sm font-medium sm:block">Alex Morgan</span>
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                className="flex items-center gap-2 rounded-2xl border border-border bg-white/5 py-1 pl-1 pr-3 hover:bg-white/10"
+                aria-label="Profile"
+              >
+                <span className="flex size-8 items-center justify-center rounded-xl bg-primary/25 text-xs font-semibold text-primary">
+                  {initials}
+                </span>
+                <span className="hidden text-sm font-medium sm:block">{displayName}</span>
+              </button>
+              <button
+                onClick={logout}
+                className="rounded-full p-2 text-muted-foreground hover:bg-white/10"
+                aria-label="Sign out"
+                title="Sign out"
+              >
+                <LogOut className="size-4" />
+              </button>
+            </div>
           </div>
         </header>
 

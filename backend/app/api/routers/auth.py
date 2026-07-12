@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
+from jose.exceptions import JWTError
 
 from backend.app.core.config import settings
 from backend.app.core.security import create_access_token, verify_password
@@ -9,7 +10,18 @@ from backend.app.repositories.user_repository import UserRepository
 from backend.app.schemas.auth import LoginRequest, TokenResponse, UserOut
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-security = HTTPBearer()
+
+security_scheme = HTTPBearer(auto_error=False)
+
+
+def security(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)) -> HTTPAuthorizationCredentials:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return credentials
 
 
 class AuthService:
@@ -46,14 +58,27 @@ def login(payload: LoginRequest) -> TokenResponse:
 def me(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     try:
         payload = jwt.decode(credentials.credentials, settings.secret_key, algorithms=[settings.algorithm])
-    except jwt.PyJWTError as exc:  # type: ignore[attr-defined]
+    except JWTError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
-    return {
-        "user": {
-            "id": payload.get("id"),
-            "username": payload.get("sub"),
-            "email": payload.get("email"),
-            "name": payload.get("name") or payload.get("sub"),
-            "role": payload.get("role") or "admin",
+
+    username = payload.get("sub")
+    if not username:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
+
+    session = SessionLocal()
+    try:
+        repository = UserRepository(session)
+        user = repository.get_by_username(username)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        return {
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "name": user.username,
+                "role": "admin",
+            }
         }
-    }
+    finally:
+        session.close()

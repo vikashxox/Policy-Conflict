@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import re
 from pathlib import Path
 from typing import Any
@@ -9,18 +10,74 @@ class PolicyParser:
     def parse(self, filename: str, content: bytes) -> dict[str, Any]:
         text = self._decode_content(content)
         metadata = self._extract_metadata(text)
+
+        # Try to find metadata from policy_metadata.csv if available
+        csv_metadata = {}
+        try:
+            from backend.app.core.config import settings
+            csv_path = Path(settings.grc_dataset_path) / "policy_metadata.csv"
+            if csv_path.exists():
+                with open(csv_path, mode="r", encoding="utf-8") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        row_file = row.get("file") or ""
+                        if row_file == filename or Path(row_file).name == Path(filename).name:
+                            csv_metadata = row
+                            break
+        except Exception:
+            pass
+
+        # Extract Policy Title
         policy_name = (
-            metadata.get("policy_name")
+            csv_metadata.get("title")
+            or metadata.get("policy_name")
             or metadata.get("title")
+            or self._extract_field(text, "Title")
+            or self._extract_field(text, "Policy Name")
             or Path(filename).stem.replace("-", " ").replace("_", " ").title()
         )
-        version = metadata.get("version") or self._extract_field(text, "Version") or "v1.0"
-        department = metadata.get("department") or self._extract_field(text, "Department") or "Security"
-        owner = metadata.get("owner") or self._extract_field(text, "Owner") or "Unknown"
-        effective_date = metadata.get("effective_date") or self._extract_field(text, "Effective Date")
-        last_reviewed = metadata.get("last_reviewed") or self._extract_field(text, "Last Reviewed")
-        sections = max(1, len(re.findall(r"^#{1,6}\s+", text, flags=re.MULTILINE)))
+
+        owner = csv_metadata.get("author") or metadata.get("owner") or self._extract_field(text, "Owner") or "Unknown"
+        department = csv_metadata.get("department") or metadata.get("department") or self._extract_field(text, "Department") or "Security"
+        version = csv_metadata.get("version") or metadata.get("version") or self._extract_field(text, "Version") or "v1.0"
+        status = csv_metadata.get("status") or metadata.get("status") or self._extract_field(text, "Status") or "active"
+        last_reviewed = csv_metadata.get("last_reviewed") or metadata.get("last_reviewed") or self._extract_field(text, "Last Reviewed") or ""
+
+        # Split into sections
+        sections_list = []
+        heading_pattern = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
+        matches = list(heading_pattern.finditer(text))
+
+        if not matches:
+            sections_list.append({"title": "General", "content": text})
+        else:
+            for i in range(len(matches)):
+                match = matches[i]
+                start = match.end()
+                end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+                sections_list.append({
+                    "title": match.group(2).strip(),
+                    "content": text[start:end].strip()
+                })
+
+        # Split into paragraphs
         paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+
+        # Split into sentences
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+
+        # Extract Obligation sentences
+        obligation_keywords = {"must", "shall", "required", "require", "requires", "mandatory", "obligated", "must not", "shall not", "prohibited", "recommended", "should"}
+        obligation_sentences = []
+        for s in sentences:
+            lowered_s = s.lower()
+            if any(keyword in lowered_s for keyword in obligation_keywords):
+                obligation_sentences.append(s)
+
+        merged_metadata = {
+            **metadata,
+            **csv_metadata
+        }
 
         return {
             "policy_name": policy_name,
@@ -28,15 +85,19 @@ class PolicyParser:
             "version": version,
             "department": department,
             "owner": owner,
-            "effective_date": effective_date,
-            "effectiveDate": effective_date,
+            "effective_date": last_reviewed,
+            "effectiveDate": last_reviewed,
             "last_reviewed": last_reviewed,
             "lastReviewed": last_reviewed,
-            "sections": sections,
+            "status": status,
+            "sections": len(sections_list),  # Keep as integer for schema validation
+            "sections_list": sections_list,  # Extended section detail list
             "paragraphs": paragraphs,
-            "metadata": metadata,
-            "raw_text": text[:4000],
-            "rawText": text[:4000],
+            "sentences": sentences,
+            "obligation_sentences": obligation_sentences,
+            "metadata": merged_metadata,
+            "raw_text": text,
+            "rawText": text,
         }
 
     def _decode_content(self, content: bytes) -> str:

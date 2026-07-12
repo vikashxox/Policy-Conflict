@@ -170,14 +170,29 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers.set("Content-Type", "application/json")
   }
 
-  const response = await fetch(buildUrl(path), {
-    ...init,
-    headers,
-  })
+  let response: Response
+  try {
+    response = await fetch(buildUrl(path), { ...init, headers })
+  } catch {
+    throw new Error("Network error: unable to reach the server.")
+  }
 
   if (!response.ok) {
     const text = await response.text().catch(() => "")
-    throw new Error(text || `Request failed with status ${response.status}`)
+    // FastAPI returns JSON { detail: string } for most errors
+    try {
+      const json = JSON.parse(text)
+      const detail =
+        typeof json?.detail === "string"
+          ? json.detail
+          : Array.isArray(json?.detail)
+            ? json.detail.map((d: { msg: string }) => d.msg).join(", ")
+            : text || `Request failed with status ${response.status}`
+      throw new Error(detail)
+    } catch (e) {
+      if (e instanceof Error && e.message !== text) throw e
+      throw new Error(text || `Request failed with status ${response.status}`)
+    }
   }
 
   if (response.status === 204) {
@@ -187,7 +202,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T
 }
 
-export async function login(payload: { email: string; password: string }) {
+export async function login(
+  payload:
+    | { email: string; password: string }
+    | { username: string; password: string },
+) {
   const result = await request<TokenResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(payload),

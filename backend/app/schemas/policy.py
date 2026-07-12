@@ -1,30 +1,27 @@
 from pydantic import BaseModel, Field
 
 
-class PolicyBase(BaseModel):
+class PolicyOut(BaseModel):
+    id: str
     name: str
     category: str
     owner: str
     department: str
     version: str
-    effective_date: str
-    last_reviewed: str
+    effectiveDate: str
+    lastReviewed: str
     health: int = Field(ge=0, le=100)
     severity: str
     status: str
     summary: str
 
 
-class PolicyOut(PolicyBase):
-    id: str
-
-
 class FindingOut(BaseModel):
     id: str
     severity: str
     type: str
-    policy_a: str
-    policy_b: str
+    policyA: str
+    policyB: str
     section: str
     confidence: int
     description: str
@@ -34,9 +31,34 @@ class FindingOut(BaseModel):
     category: str
 
 
+class PolicyListResponse(BaseModel):
+    items: list[PolicyOut]
+
+
+class PolicyDetailResponse(BaseModel):
+    policy: PolicyOut
+    obligations: list[str]
+    relatedFindings: list[FindingOut]
+
+
+class FindingListResponse(BaseModel):
+    items: list[FindingOut]
+
+
 class DashboardResponse(BaseModel):
+    organization: dict
     kpis: dict
+    kpiMetrics: list[dict]
+    healthBreakdown: list[dict]
+    policiesByCategory: list[dict]
+    healthTrend: list[dict]
+    conflictTrend: list[dict]
+    complianceDistribution: list[dict]
+    complianceFrameworks: list[dict]
+    aiInsights: list[dict]
+    aiRecommendation: str
     findings: list[FindingOut]
-    policies: list[PolicyOut]
-    recent_uploads: list[dict]
+    recentUploads: list[dict]
     activity: list[dict]
+    graphNodes: list[dict]
+    graphLinks: list[dict]

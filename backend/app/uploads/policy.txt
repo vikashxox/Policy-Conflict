@@ -1,0 +1,9 @@
+Policy Name: Password Rotation Policy
+Version: v4.2
+Department: Security Engineering
+Owner: Dana Whitmore
+Effective Date: 2024-06-01
+Last Reviewed: 2025-11-02
+
+The policy shall require MFA for all users.
+Users must rotate passwords every 30 days.

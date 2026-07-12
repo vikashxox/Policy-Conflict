@@ -12,23 +12,42 @@ from backend.app.models.user import User
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     seed_default_admin_user()
+    seed_dataset()
+
+
+def seed_dataset() -> None:
+    from backend.app.services.dataset_loader import DatasetLoaderService
+    session = SessionLocal()
+    try:
+        loader = DatasetLoaderService()
+        loader.seed_database(session)
+    finally:
+        session.close()
 
 
 def seed_default_admin_user() -> None:
+    """Seed the default admin account: admin@gmail.com / admin123."""
     session = SessionLocal()
     try:
-        username = getattr(settings, "default_admin_username", "admin")
-        password = getattr(settings, "default_admin_password", "admin123")
-        existing = session.query(User).filter(User.username == username).first()
+        existing = session.query(User).filter(
+            (User.username == "admin") | (User.email == "admin@gmail.com")
+        ).first()
         if existing is None:
             session.add(
                 User(
-                    username=username,
-                    email=f"{username}@policy-guardian.local",
-                    hashed_password=get_password_hash(password),
+                    username="admin",
+                    email="admin@gmail.com",
+                    hashed_password=get_password_hash("admin123"),
                     is_active=True,
                 )
             )
+            session.commit()
+        else:
+            # Ensure credentials are up to date
+            existing.username = "admin"
+            existing.email = "admin@gmail.com"
+            existing.hashed_password = get_password_hash("admin123")
+            existing.is_active = True
             session.commit()
     finally:
         session.close()

@@ -62,6 +62,14 @@ export function DonutChart({
 }: {
   data: { label: string; value: number; color: string }[]
 }) {
+  if (data.length === 0) {
+    return (
+      <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
+        No data
+      </div>
+    )
+  }
+
   const total = data.reduce((sum, d) => sum + d.value, 0)
   const radius = 60
   const circumference = 2 * Math.PI * radius
@@ -115,6 +123,9 @@ export function BarChart({
 }: {
   data: { category: string; count: number }[]
 }) {
+  if (data.length === 0) {
+    return <div className="flex h-52 items-center justify-center text-xs text-muted-foreground">No data</div>
+  }
   const max = Math.max(...data.map((d) => d.count))
 
   return (
@@ -150,6 +161,11 @@ export function Sparkline({
   height?: number
 }) {
   const gid = useId()
+
+  if (data.length < 2) {
+    return <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} />
+  }
+
   const min = Math.min(...data)
   const max = Math.max(...data)
   const range = max - min || 1
@@ -185,6 +201,24 @@ export function TrendChart({
   const gid = useId()
   const width = 520
   const pad = 28
+
+  // ── Guard: need at least 2 points to draw a meaningful line ──────────────
+  if (data.length < 2) {
+    return (
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ maxHeight: height }}>
+        <text
+          x={width / 2}
+          y={height / 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="fill-muted-foreground text-[11px]"
+        >
+          No data
+        </text>
+      </svg>
+    )
+  }
+
   const values = data.map((d) => d.value)
   const min = Math.min(...values)
   const max = Math.max(...values)

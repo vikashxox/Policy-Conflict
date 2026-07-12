@@ -25,6 +25,10 @@ class Settings:
         ]
         self.log_level: str = os.getenv("LOG_LEVEL", "INFO")
         self.log_format: str = os.getenv("LOG_FORMAT", "%(asctime)s %(levelname)s %(name)s %(message)s")
+        self.grc_dataset_path: str = os.getenv(
+            "GRC_DATASET_PATH",
+            "D:/Downloads/GRC-Hackathon-main/Problem Statements/Problem_11_Policy_Conflict/sample_data/problem_11",
+        )
 
 
 settings = Settings()
